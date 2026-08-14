@@ -1,0 +1,79 @@
+name: Nsdock Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [arm, arm64]
+    steps:
+      - name: Checkout Nsdock
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Instalar toolchain de cross-compile (CGO)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu libseccomp-dev
+
+      - name: Definir variáveis de cross-compile
+        run: |
+          if [ "${{ matrix.goarch }}" = "arm" ]; then
+            echo "CC=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+            echo "GOARM=7" >> $GITHUB_ENV
+          else
+            echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          fi
+          echo "GOARCH=${{ matrix.goarch }}" >> $GITHUB_ENV
+          echo "CGO_ENABLED=1" >> $GITHUB_ENV
+
+      - name: Clonar repositórios oficiais
+        run: |
+          git clone --depth 1 https://github.com/moby/moby.git vendor/dockerd
+          git clone --depth 1 https://github.com/docker/cli.git vendor/docker-cli
+          git clone --depth 1 https://github.com/containerd/containerd.git vendor/containerd
+          git clone --depth 1 https://github.com/opencontainers/runc.git vendor/runc
+          git clone --depth 1 https://github.com/moby/buildkit.git vendor/buildkit
+
+      - name: Build runc
+        working-directory: vendor/runc
+        run: make static
+
+      - name: Build containerd
+        working-directory: vendor/containerd
+        run: make STATIC=1
+
+      - name: Build dockerd
+        working-directory: vendor/dockerd
+        run: ./hack/make.sh binary
+
+      - name: Build docker-cli
+        working-directory: vendor/docker-cli
+        run: make -f docker.Makefile binary
+
+      - name: Build buildkit
+        working-directory: vendor/buildkit
+        run: make binaries
+
+      - name: Organizar binários pra upload
+        run: |
+          mkdir -p out
+          find vendor -maxdepth 3 -type f -executable \
+            \( -name "runc" -o -name "containerd" -o -name "containerd-shim-runc-v2" \
+               -o -name "dockerd" -o -name "docker" -o -name "buildkitd" -o -name "buildctl" \) \
+            -exec cp {} out/ \;
+
+      - name: Upload binários (${{ matrix.goarch }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: nsdock-${{ matrix.goarch }}
+          path: out/
