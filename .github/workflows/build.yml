@@ -23,7 +23,10 @@ jobs:
       - name: Instalar toolchain de cross-compile (CGO)
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu libseccomp-dev
+          sudo dpkg --add-architecture armhf
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu libseccomp-dev:armhf libseccomp-dev:arm64
 
       - name: Definir variáveis de cross-compile
         run: |
