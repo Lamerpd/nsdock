@@ -41,7 +41,7 @@ jobs:
           git clone --depth 1 https://github.com/moby/moby.git vendor/dockerd
           git clone --depth 1 https://github.com/docker/cli.git vendor/docker-cli
           git clone --depth 1 https://github.com/containerd/containerd.git vendor/containerd
-          git clone --depth 1 https://github.com/opencontainers/runc.git vendor/runc
+          git clone --depth 1 --branch v1.1.12 https://github.com/opencontainers/runc.git vendor/runc
           git clone --depth 1 https://github.com/moby/buildkit.git vendor/buildkit
 
       - name: Build runc
