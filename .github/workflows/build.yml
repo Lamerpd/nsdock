@@ -22,21 +22,10 @@ jobs:
 
       - name: Instalar toolchain de cross-compile (CGO)
         run: |
-          sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null << 'SRC'
-Types: deb
-URIs: http://azure.archive.ubuntu.com/ubuntu/
-Suites: noble noble-updates noble-backports
-Components: main universe restricted multiverse
-Architectures: amd64
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-
-Types: deb
-URIs: http://security.ubuntu.com/ubuntu/
-Suites: noble-security
-Components: main universe restricted multiverse
-Architectures: amd64
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-SRC
+          sudo rm -f /etc/apt/sources.list.d/ubuntu.sources
+          echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu/ noble main universe restricted multiverse" | sudo tee /etc/apt/sources.list.d/ubuntu-amd64.list
+          echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu/ noble-updates main universe restricted multiverse" | sudo tee -a /etc/apt/sources.list.d/ubuntu-amd64.list
+          echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security main universe restricted multiverse" | sudo tee -a /etc/apt/sources.list.d/ubuntu-amd64.list
           sudo dpkg --add-architecture armhf
           sudo dpkg --add-architecture arm64
           echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ noble main universe" | sudo tee /etc/apt/sources.list.d/ports.list
@@ -45,7 +34,7 @@ SRC
           sudo apt-get update
           sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu libseccomp-dev:armhf libseccomp-dev:arm64
 
-      - name: Definir variáveis de cross-compile
+      - name: Definir variaveis de cross-compile
         run: |
           if [ "${{ matrix.goarch }}" = "arm" ]; then
             echo "CC=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
@@ -56,7 +45,7 @@ SRC
           echo "GOARCH=${{ matrix.goarch }}" >> $GITHUB_ENV
           echo "CGO_ENABLED=1" >> $GITHUB_ENV
 
-      - name: Clonar repositórios oficiais
+      - name: Clonar repositorios oficiais
         run: |
           git clone --depth 1 https://github.com/moby/moby.git vendor/dockerd
           git clone --depth 1 https://github.com/docker/cli.git vendor/docker-cli
@@ -84,15 +73,12 @@ SRC
         working-directory: vendor/buildkit
         run: make binaries
 
-      - name: Organizar binários pra upload
+      - name: Organizar binarios para upload
         run: |
           mkdir -p out
-          find vendor -maxdepth 3 -type f -executable \
-            \( -name "runc" -o -name "containerd" -o -name "containerd-shim-runc-v2" \
-               -o -name "dockerd" -o -name "docker" -o -name "buildkitd" -o -name "buildctl" \) \
-            -exec cp {} out/ \;
+          find vendor -maxdepth 3 -type f -executable \( -name "runc" -o -name "containerd" -o -name "containerd-shim-runc-v2" -o -name "dockerd" -o -name "docker" -o -name "buildkitd" -o -name "buildctl" \) -exec cp {} out/ \;
 
-      - name: Upload binários (${{ matrix.goarch }})
+      - name: Upload binarios
         uses: actions/upload-artifact@v4
         with:
           name: nsdock-${{ matrix.goarch }}
